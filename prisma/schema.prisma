@@ -1,0 +1,245 @@
+// ==========================================================
+// E-commerce Order Management System — Prisma Schema
+// PostgreSQL (Supabase) con connection pooling
+// ==========================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// ==========================================================
+// ENUMS
+// ==========================================================
+
+enum Genero {
+  MASCULINO
+  FEMENINO
+  UNISEX
+  NINOS
+}
+
+enum EstadoProducto {
+  ACTIVO
+  INACTIVO
+}
+
+enum EstadoPago {
+  PAGADO
+  FALLIDO
+}
+
+enum EstadoOrden {
+  EN_PREPARACION
+  ENVIADO
+  COMPLETADO
+  CANCELADO
+}
+
+// ==========================================================
+// ADMIN (Mini-login)
+// ==========================================================
+
+model Admin {
+  id       String @id @default(uuid()) @db.Uuid
+  email    String @unique
+  password String
+
+  historial HistorialOrden[]
+
+  @@map("admins")
+}
+
+// ==========================================================
+// CATEGORÍAS (jerárquicas / self-relation)
+// ==========================================================
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  nombre    String
+  posicion  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parentId String?   @db.Uuid
+  parent   Category? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+
+  subcategorias Category[] @relation("CategoryHierarchy")
+  productos     Product[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+// ==========================================================
+// PRODUCTOS
+// ==========================================================
+
+model Product {
+  id          String         @id @default(uuid()) @db.Uuid
+  nombre      String
+  descripcion String
+  genero      Genero
+  marca       String
+  imagenes    String[]
+  estado      EstadoProducto @default(ACTIVO)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  categoriaId String   @db.Uuid
+  categoria   Category @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+
+  variantes ProductVariant[]
+
+  @@index([categoriaId])
+  @@map("products")
+}
+
+// ==========================================================
+// VARIANTES DE PRODUCTO (color/talla/stock/precio/SKU)
+// ==========================================================
+
+model ProductVariant {
+  id        String   @id @default(uuid()) @db.Uuid
+  sku       String   @unique
+  precio    Decimal  @db.Decimal(10, 2)
+  stock     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  productId String  @db.Uuid
+  producto  Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  atributos VariantAttribute[]
+  items     OrderItem[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+// ==========================================================
+// ATRIBUTOS DE VARIANTE (Color, Talla, etc. — normalizado)
+// ==========================================================
+
+model VariantAttribute {
+  id     String @id @default(uuid()) @db.Uuid
+  tipo   String // Ej: "Color", "Talla"
+  valor  String // Ej: "Rojo", "26.5"
+
+  variantId String         @db.Uuid
+  variante  ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  // Evita que la misma variante tenga dos valores para el mismo tipo de atributo
+  @@unique([variantId, tipo])
+  @@index([variantId])
+  @@map("variant_attributes")
+}
+
+// ==========================================================
+// CLIENTES
+// ==========================================================
+
+model Customer {
+  id        String   @id @default(uuid()) @db.Uuid
+  nombre    String
+  email     String   @unique
+  telefono  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ordenes Order[]
+
+  @@map("customers")
+}
+
+// ==========================================================
+// ÓRDENES / VENTAS
+// ==========================================================
+
+model Order {
+  id             String      @id @default(uuid()) @db.Uuid
+  numeroOrden    String      @unique
+  total          Decimal     @db.Decimal(10, 2)
+  metodoPago     String
+  estadoPago     EstadoPago  @default(FALLIDO)
+  estadoOrden    EstadoOrden @default(EN_PREPARACION)
+  trackingNumber String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  clienteId String   @db.Uuid
+  cliente   Customer @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  direccionEnvio ShippingAddress?
+  historial      HistorialOrden[]
+  items          OrderItem[]
+
+  @@index([clienteId])
+  @@map("orders")
+}
+
+// ==========================================================
+// DIRECCIÓN DE ENVÍO (relación 1:1 con Order)
+// ==========================================================
+
+model ShippingAddress {
+  id            String  @id @default(uuid()) @db.Uuid
+  calle         String
+  numeroExt     String
+  numeroInt     String?
+  colonia       String
+  ciudad        String
+  estadoMx      String
+  codigoPostal  String
+  pais          String  @default("México")
+  referencias   String?
+
+  orderId String @unique @db.Uuid
+  orden   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("shipping_addresses")
+}
+
+// ==========================================================
+// ITEMS DE LA ORDEN (detalle de productos comprados)
+// ==========================================================
+
+model OrderItem {
+  id             String  @id @default(uuid()) @db.Uuid
+  cantidad       Int
+  precioUnitario Decimal @db.Decimal(10, 2)
+
+  ordenId String @db.Uuid
+  orden   Order  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  varianteId String         @db.Uuid
+  variante   ProductVariant @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+
+  @@index([ordenId])
+  @@index([varianteId])
+  @@map("order_items")
+}
+
+// ==========================================================
+// HISTORIAL DE MODIFICACIONES (timeline de la orden)
+// ==========================================================
+
+model HistorialOrden {
+  id        String      @id @default(uuid()) @db.Uuid
+  estado    EstadoOrden
+  nota      String?
+  createdAt DateTime    @default(now())
+
+  ordenId String @db.Uuid
+  orden   Order  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  adminId String @db.Uuid
+  admin   Admin  @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([ordenId])
+  @@index([adminId])
+  @@map("order_history")
+}
