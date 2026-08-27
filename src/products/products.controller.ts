@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginatedResult, ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateVariantDto } from './dto/update-variant.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -48,6 +49,19 @@ export class ProductsController {
     @Body() dto: UpdateProductDto,
   ): Promise<Product> {
     return this.productsService.update(id, dto);
+  }
+
+  // Edición puntual de una variante: precio, stock, color y/o talla.
+  // Devuelve el producto completo (con todas sus variantes) para que el
+  // frontend pueda refrescar el estado sin hacer un segundo fetch.
+  @Patch(':productId/variants/:variantId')
+  @UseGuards(JwtAuthGuard)
+  updateVariant(
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Param('variantId', ParseUUIDPipe) variantId: string,
+    @Body() dto: UpdateVariantDto,
+  ): Promise<Product> {
+    return this.productsService.updateVariant(productId, variantId, dto);
   }
 
   @Delete(':id')
