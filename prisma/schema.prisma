@@ -40,6 +40,32 @@ enum EstadoOrden {
 }
 
 // ==========================================================
+// MÉTODOS DE PAGO (catálogo editable, se auto-siembra al iniciar)
+// ==========================================================
+
+model PaymentMethod {
+  id        String   @id @default(uuid()) @db.Uuid
+  nombre    String   @unique
+  posicion  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("payment_methods")
+}
+
+// ==========================================================
+// ESTADOS (entidades federativas de México — catálogo fijo)
+// ==========================================================
+
+model MexicanState {
+  id       String @id @default(uuid()) @db.Uuid
+  nombre   String @unique
+  clave    String @unique // Abreviatura oficial INEGI, ej. "JAL", "CMX"
+  posicion Int    @default(0)
+
+  @@map("mexican_states")
+}
+
+// ==========================================================
 // ADMIN (Mini-login)
 // ==========================================================
 
