@@ -14,6 +14,7 @@ import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { PaymentMethodsService } from './payment-methods/payment-methods.service';
 import { MexicanStatesModule } from './mexican-states/mexican-states.module';
 import { MexicanStatesService } from './mexican-states/mexican-states.service';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MexicanStatesService } from './mexican-states/mexican-states.service';
     DashboardModule,
     PaymentMethodsModule,
     MexicanStatesModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
